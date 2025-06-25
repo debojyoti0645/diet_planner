@@ -77,4 +77,37 @@ $rawPlan
 
     return await callGeminiAPI(prompt);
   }
+
+  static Future<String> postProcessExercisePlan(String rawPlan) async {
+    final prompt = '''
+You are a helpful assistant for a fitness app.
+Reformat and organize the following exercise plan as a JSON object with this structure:
+
+{
+  "days": [
+    {
+      "day": "Monday",
+      "warmup": "...",
+      "main": [
+        {"exercise": "...", "sets": 3, "reps": 12, "rest": "60s"}
+      ],
+      "cooldown": "...",
+      "yoga": "...",
+      "outdoor": "...",
+      "notes": "..."
+    }
+  ]
+}
+
+IMPORTANT:
+- Output ONLY valid JSON, no markdown, no commentary, no extra text.
+- Do NOT include ```json or any code block markers.
+- If you are unsure, output: {"days":[]}
+
+Here is the plan:
+$rawPlan
+''';
+
+    return await callGeminiAPI(prompt);
+  }
 }

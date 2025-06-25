@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:diet_planner/gemini_service.dart';
 import 'package:flutter/material.dart';
 
@@ -18,6 +20,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
   bool _canCycle = false;
   String _exercisePlan = '';
   bool _isLoading = false;
+  List<ExerciseDay>? _parsedPlan;
 
   final List<String> _goals = [
     'Bulking',
@@ -50,6 +53,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
     setState(() {
       _isLoading = true;
       _exercisePlan = '';
+      _parsedPlan = null;
     });
 
     if (_selectedGoal == null || _selectedGoal!.isEmpty) {
@@ -71,21 +75,64 @@ Has gym access: ${_hasGym ? 'Yes' : 'No'}
 Can go for a run: ${_canRun ? 'Yes' : 'No'}
 Can go cycling: ${_canCycle ? 'Yes' : 'No'}
 
-Each day should include:
-- Warm-up
-- Main exercises (with sets, reps, rest)
-- Cool-down
-- Suggest yoga if wanted
-- Suggest outdoor activities if possible
-Include rest days if needed. Format it clearly by day.
+Respond ONLY in the following JSON format:
+
+{
+  "days": [
+    {
+      "day": "Monday",
+      "warmup": "5 min brisk walk",
+      "main": [
+        {"exercise": "Push-ups", "sets": 3, "reps": 12, "rest": "60s"},
+        {"exercise": "Squats", "sets": 3, "reps": 15, "rest": "60s"}
+      ],
+      "cooldown": "5 min stretching",
+      "yoga": "Sun Salutation (if yoga wanted)",
+      "outdoor": "Go for a 15 min run (if possible)",
+      "notes": "Rest if needed"
+    },
+    ...
+  ]
+}
+
+Each day should be clear and concise. Only output valid JSON.
 ''';
 
-    final result = await GeminiService.callGeminiAPI(prompt);
+    final rawResult = await GeminiService.callGeminiAPI(prompt);
+    final cleanedJson = await GeminiService.postProcessExercisePlan(rawResult);
 
-    setState(() {
-      _exercisePlan = result;
-      _isLoading = false;
-    });
+    // Clean the result before parsing
+    String cleanedResult = cleanedJson
+        .replaceAll(RegExp(r'```json|```'), '')
+        .replaceAll(RegExp(r'^.*?{', dotAll: true), '{') // Remove text before first {
+        .trim();
+
+    try {
+      final decoded = jsonDecode(cleanedResult);
+      final days = (decoded['days'] as List)
+          .map((e) => ExerciseDay.fromJson(e))
+          .toList();
+      setState(() {
+        _parsedPlan = days;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _exercisePlan = 'Could not parse plan. Please try again.\n\n$cleanedResult';
+        _parsedPlan = null;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Object _parseExercisePlan(String plan) {
+    // Basic parsing logic (improved to decode JSON)
+    try {
+      final json = jsonDecode(plan);
+      return json['days'];
+    } catch (e) {
+      return [];
+    }
   }
 
   @override
@@ -101,7 +148,7 @@ Include rest days if needed. Format it clearly by day.
         ),
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(8),
             children: [
               _buildInputCard(context),
               const SizedBox(height: 24),
@@ -144,7 +191,7 @@ Include rest days if needed. Format it clearly by day.
                     'Personalized Workout Planner',
                     style: TextStyle(
                       color: const Color(0xFF6366F1),
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -321,21 +368,278 @@ Include rest days if needed. Format it clearly by day.
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child:
-            _exercisePlan.isEmpty
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : (_parsedPlan == null)
                 ? Text(
-                  'Your personalized exercise plan will appear here.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                )
-                : SingleChildScrollView(
-                  child: Text(
-                    _exercisePlan,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    _exercisePlan.isEmpty
+                        ? 'Your personalized exercise plan will appear here.'
+                        : _exercisePlan,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: Colors.grey),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final day in _parsedPlan!)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Day header
+                              Text(
+                                day.day,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      color: const Color(0xFF6366F1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 19,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Warm-up
+                              Row(
+                                children: [
+                                  const Icon(Icons.directions_run, color: Colors.orange, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Warm-up: ',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      day.warmup,
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Main Exercises
+                              Row(
+                                children: [
+                                  const Icon(Icons.fitness_center, color: Colors.indigo, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Main Exercises:',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 18),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (final ex in day.main)
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 2),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              "• ",
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                color: Color(0xFF6366F1),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: RichText(
+                                                text: TextSpan(
+                                                  style: Theme.of(context).textTheme.bodyMedium,
+                                                  children: [
+                                                    TextSpan(
+                                                      text: ex['exercise'],
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Color(0xFF6366F1), // Indigo for exercise name
+                                                      ),
+                                                    ),
+                                                    TextSpan(
+                                                      text: '  (',
+                                                      style: TextStyle(color: Colors.grey[700]),
+                                                    ),
+                                                    TextSpan(
+                                                      text: '${ex['sets']} sets',
+                                                      style: const TextStyle(
+                                                        color: Colors.deepOrange, // Orange for sets
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    TextSpan(
+                                                      text: ' x ',
+                                                      style: TextStyle(color: Colors.grey[700]),
+                                                    ),
+                                                    TextSpan(
+                                                      text: '${ex['reps']} reps',
+                                                      style: const TextStyle(
+                                                        color: Colors.green, // Green for reps
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    TextSpan(
+                                                      text: ', Rest: ',
+                                                      style: TextStyle(color: Colors.grey[700]),
+                                                    ),
+                                                    TextSpan(
+                                                      text: ex['rest'],
+                                                      style: const TextStyle(
+                                                        color: Colors.blue, // Blue for rest
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const TextSpan(text: ')'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              // Cool-down
+                              Row(
+                                children: [
+                                  const Icon(Icons.self_improvement, color: Colors.green, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Cool-down: ',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      day.cooldown,
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // Yoga
+                              if (day.yoga != null && day.yoga!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.self_improvement, color: Colors.purple, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Yoga: ',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF6366F1),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          day.yoga!,
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              // Outdoor
+                              if (day.outdoor != null && day.outdoor!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.directions_bike, color: Colors.blue, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Outdoor: ',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF6366F1),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          day.outdoor!,
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              // Notes
+                              if (day.notes != null && day.notes!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.deepOrange, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Notes: ',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF6366F1),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          day.notes!,
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
-                ),
       ),
+    );
+  }
+}
+
+class ExerciseDay {
+  final String day;
+  final String warmup;
+  final List<dynamic> main;
+  final String cooldown;
+  final String? yoga;
+  final String? outdoor;
+  final String? notes;
+
+  ExerciseDay({
+    required this.day,
+    required this.warmup,
+    required this.main,
+    required this.cooldown,
+    this.yoga,
+    this.outdoor,
+    this.notes,
+  });
+
+  factory ExerciseDay.fromJson(Map<String, dynamic> json) {
+    return ExerciseDay(
+      day: json['day'] ?? '',
+      warmup: json['warmup'] ?? '',
+      main: json['main'] ?? [],
+      cooldown: json['cooldown'] ?? '',
+      yoga: json['yoga'],
+      outdoor: json['outdoor'],
+      notes: json['notes'],
     );
   }
 }
