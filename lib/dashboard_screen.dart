@@ -1,27 +1,229 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'dart:io';
+import 'dart:math';
 
-class DashboardScreen extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class DashboardScreen extends StatefulWidget {
   final String userName;
 
   const DashboardScreen({super.key, this.userName = "Alex"});
 
   @override
-  Widget build(BuildContext context) {
-    final today = DateFormat('EEEE, MMM d').format(DateTime.now());
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
 
-    // Mock Data
-    final calories = 0;
-    final caloriesTarget = 2000;
-    final water = 0;
-    final waterTarget = 8;
-    final steps = 0;
-    final stepsTarget = 10000;
-    final workoutDone = false;
-    final hasProgress = calories > 0 || water > 0 || steps > 0;
+class _DashboardScreenState extends State<DashboardScreen> {
+  double? weight; // in kg
+  double? height; // in cm
+  int? age;
+  String? gender;
+  String? userName; // <-- Add this line
+  String? userImagePath; // <-- Add this line
+
+  final List<String> _nutritionTips = [
+    '💡 Drink water before meals to aid digestion.',
+    '🥗 Eat more whole foods and less processed food.',
+    '🍎 Include fruits and veggies in every meal.',
+    '🥤 Limit sugary drinks for better health.',
+    '🍳 Start your day with a protein-rich breakfast.',
+    '🧂 Reduce salt intake to maintain blood pressure.',
+    '🥛 Choose low-fat dairy options.',
+    '🍠 Prefer whole grains over refined grains.',
+    '🍫 Enjoy treats in moderation.',
+    '🍋 Add lemon to water for vitamin C boost.',
+    '🥦 Try to eat a rainbow of vegetables.',
+    '🍵 Green tea is a healthy beverage choice.',
+  ];
+
+  late String _selectedTip;
+
+  // Example: You can persist these values using SharedPreferences or a database
+
+  double? get bmi {
+    if (weight != null && height != null && height! > 0) {
+      final h = height! / 100;
+      return weight! / (h * h);
+    }
+    return null;
+  }
+
+  void _showHealthDetailsDialog() {
+    final nameController = TextEditingController(
+      text: userName ?? widget.userName,
+    ); // <-- Add this line
+    final weightController = TextEditingController(
+      text: weight?.toString() ?? '',
+    );
+    final heightController = TextEditingController(
+      text: height?.toString() ?? '',
+    );
+    final ageController = TextEditingController(text: age?.toString() ?? '');
+    String? selectedGender = gender;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Enter Your Health Details'),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(
+                    controller: nameController, // <-- Add this block
+                    decoration: const InputDecoration(labelText: 'Name'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: weightController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Weight (kg)'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: heightController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Height (cm)'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: ageController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Age'),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedGender,
+                    items:
+                        ['Male', 'Female', 'Other']
+                            .map(
+                              (g) => DropdownMenuItem(value: g, child: Text(g)),
+                            )
+                            .toList(),
+                    onChanged: (val) => selectedGender = val,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    userName = nameController.text; // <-- Add this line
+                    weight = double.tryParse(weightController.text);
+                    height = double.tryParse(heightController.text);
+                    age = int.tryParse(ageController.text);
+                    gender = selectedGender;
+                  });
+                  _saveHealthDetails();
+                  Navigator.pop(context);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _saveHealthDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userName != null)
+      prefs.setString('userName', userName!); // <-- Add this line
+    if (weight != null) prefs.setDouble('weight', weight!);
+    if (height != null) prefs.setDouble('height', height!);
+    if (age != null) prefs.setInt('age', age!);
+    if (gender != null) prefs.setString('gender', gender!);
+  }
+
+  Future<void> _loadHealthDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('userName') ?? widget.userName;
+      weight = prefs.getDouble('weight');
+      height = prefs.getDouble('height');
+      age = prefs.getInt('age');
+      gender = prefs.getString('gender');
+      userImagePath = prefs.getString('userImagePath'); // <-- Add this line
+    });
+  }
+
+  Future<void> _pickAndSaveImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      // Save the image directly without cropping
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName =
+          'user_profile_${DateTime.now().millisecondsSinceEpoch}.png';
+      final savedImage = await File(
+        picked.path,
+      ).copy('${appDir.path}/$fileName');
+      setState(() {
+        userImagePath = savedImage.path;
+      });
+      final prefs = await SharedPreferences.getInstance();
+      prefs.setString('userImagePath', userImagePath!);
+    }
+  }
+
+  void _onProfileImageTap() {
+    if (userImagePath == null) {
+      _pickAndSaveImage();
+    } else {
+      showModalBottomSheet(
+        context: context,
+        builder:
+            (context) => SafeArea(
+              child: Wrap(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.visibility),
+                    title: const Text('View Picture'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) =>
+                                Dialog(child: Image.file(File(userImagePath!))),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.edit),
+                    title: const Text('Change Picture'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndSaveImage();
+                    },
+                  ),
+                ],
+              ),
+            ),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTip = _nutritionTips[Random().nextInt(_nutritionTips.length)];
+    _loadHealthDetails(); // <-- Load saved details on startup
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DateFormat('EEEE, MMM d').format(DateTime.now());
 
     return Scaffold(
-      // Removed appBar here!
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -31,38 +233,14 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
         child: SingleChildScrollView(
-          // Adjusted top padding to leave space for the global AppBar
           padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Optionally, add a greeting here if you want it below the AppBar
-              // Padding(
-              //   padding: const EdgeInsets.only(bottom: 16),
-              //   child: Text(
-              //     'Good morning, $userName! 👋',
-              //     style: Theme.of(context).textTheme.titleLarge,
-              //   ),
-              // ),
-              _buildDailyGoalsCard(
-                context,
-                calories,
-                caloriesTarget,
-                water,
-                waterTarget,
-                steps,
-                stepsTarget,
-                workoutDone,
-                hasProgress,
-              ),
-              const SizedBox(height: 24),
-              _buildSummaryCards(context, calories, workoutDone, hasProgress),
+              _buildHealthDetailsCard(context),
+              _buildToolShortcuts(context), // <-- Add this line
               const SizedBox(height: 18),
               _buildNutritionTipCard(),
-              const SizedBox(height: 24),
-              _buildRemindersCard(context),
-              const SizedBox(height: 24),
-              _buildWeeklyProgressCard(context, hasProgress),
               const SizedBox(height: 45),
             ],
           ),
@@ -71,394 +249,380 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDailyGoalsCard(
-    BuildContext context,
-    int calories,
-    int caloriesTarget,
-    int water,
-    int waterTarget,
-    int steps,
-    int stepsTarget,
-    bool workoutDone,
-    bool hasProgress,
-  ) {
+  Widget _buildHealthDetailsCard(BuildContext context) {
+    final missing =
+        weight == null || height == null || age == null || gender == null;
     return Card(
       elevation: 8,
-      shadowColor: Colors.indigo[100],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      color: Colors.white.withOpacity(0.97),
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: hasProgress
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.flag, color: Colors.indigo[400], size: 26),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Daily Goals',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.indigo[900],
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _progressRow(
-                    Icons.local_fire_department,
-                    'Calories',
-                    '$calories / $caloriesTarget kcal',
-                    progress: caloriesTarget > 0 ? calories / caloriesTarget : 0,
-                    color: Colors.orange,
-                  ),
-                  _progressRow(
-                    Icons.water_drop,
-                    'Water',
-                    '$water / $waterTarget glasses',
-                    progress: waterTarget > 0 ? water / waterTarget : 0,
-                    color: Colors.blueAccent,
-                  ),
-                  _progressRow(
-                    Icons.directions_walk,
-                    'Steps',
-                    '$steps / $stepsTarget',
-                    progress: stepsTarget > 0 ? steps / stepsTarget : 0,
-                    color: Colors.green,
-                  ),
-                  _progressRow(
-                    Icons.fitness_center,
-                    'Workout',
-                    workoutDone ? 'Done' : 'Pending',
-                    color: Colors.purple,
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(Icons.hourglass_empty, color: Colors.indigo[200], size: 38),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'No progress yet for today!',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: Color(0xFF6366F1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFEEF2FF), Color(0xFFD1FAE5)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(14),
+        child:
+            missing
+                ? Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: Colors.orange,
+                      size: 28,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Start tracking your meals, water, and workouts to see your progress here.',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Enter your health details to see your BMI and personalized stats.',
+                        style: TextStyle(
+                          color: Colors.orange[800],
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                      ),
+                      onPressed: _showHealthDetailsDialog,
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text(
+                        'Fill Details',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+                : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: _onProfileImageTap,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.indigo.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child:
+                            userImagePath != null
+                                ? ClipOval(
+                                  child: Image.file(
+                                    File(userImagePath!),
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                                : const Icon(
+                                  Icons.person,
+                                  color: Color(0xFF6366F1),
+                                  size: 80,
+                                ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName ?? widget.userName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF6366F1),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.monitor_weight,
+                                color: Colors.indigo[400],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Weight: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.indigo[700],
+                                ),
+                              ),
+                              Text('${weight?.toStringAsFixed(1)} kg'),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.height,
+                                color: Colors.green[400],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Height: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                              Text('${height?.toStringAsFixed(1)} cm'),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.cake,
+                                color: Colors.purple[400],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Age: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.purple[700],
+                                ),
+                              ),
+                              Text('$age'),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.wc, color: Colors.pink[400], size: 20),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Gender: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.pink[700],
+                                ),
+                              ),
+                              Text('$gender'),
+                            ],
+                          ),
+                          if (bmi != null) ...[
+                            const SizedBox(height: 10),
+                            Divider(height: 1, color: Colors.indigo[100]),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.favorite,
+                                  color: _bmiColor(bmi!),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'BMI: ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _bmiColor(bmi!),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  '${bmi!.toStringAsFixed(1)} (${_bmiCategory(bmi!)})',
+                                  style: TextStyle(
+                                    color: _bmiColor(bmi!),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "Update Details",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                  onPressed: _showHealthDetailsDialog,
+                                  tooltip: 'Update Details',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
       ),
     );
   }
 
-  Widget _progressRow(
-    IconData icon,
-    String label,
-    String value, {
-    double progress = 0,
-    Color color = Colors.indigo,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: CircularProgressIndicator(
-                  value: progress.clamp(0, 1),
-                  backgroundColor: color.withOpacity(0.13),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  strokeWidth: 5,
+  String _bmiCategory(double bmi) {
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  }
+
+  Color _bmiColor(double bmi) {
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
+  }
+
+  Widget _buildNutritionTipCard() {
+    return Card(
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFFDE4), Color(0xFFFFF7AE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.amber[100],
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withOpacity(0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(10),
+              child: const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Text(
+                _selectedTip,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF7C5700),
+                  height: 1.3,
                 ),
               ),
-              Icon(icon, color: color, size: 20),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolShortcuts(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _toolShortcut(
+            context,
+            icon: Icons.timer,
+            label: "Stopwatch",
+            onTap: () {
+              Navigator.pushNamed(context, '/stopwatch');
+            },
           ),
-          const SizedBox(width: 14),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          _toolShortcut(
+            context,
+            icon: Icons.fitness_center,
+            label: "Body Mesurement",
+            onTap: () {
+              Navigator.pushNamed(context, '/body_measurement');
+            },
           ),
+          _toolShortcut(
+            context,
+            icon: Icons.calculate,
+            label: "Calorie Burned",
+            onTap: () {
+              Navigator.pushNamed(context, '/calorie_burned_estimator');
+            },
+          ),
+          // Add more shortcuts here as you add more tool screens
         ],
       ),
     );
   }
 
-  Widget _buildSummaryCards(
-    BuildContext context,
-    int calories,
-    bool workoutDone,
-    bool hasProgress,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: Stack(
-            children: [
-              _summaryCard(
-                title: 'Diet',
-                icon: Icons.restaurant_menu,
-                value: hasProgress ? '$calories kcal' : 'No data',
-                subtitle: hasProgress ? 'See recommended meals' : 'Add your meals',
-                color: Colors.indigo[50]!,
-                iconColor: Colors.indigo[700]!,
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: _comingSoonBanner(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Stack(
-            children: [
-              _summaryCard(
-                title: 'Exercise',
-                icon: Icons.fitness_center,
-                value: workoutDone ? 'Completed' : 'Pending',
-                subtitle: 'See workout plan',
-                color: Colors.blue[50]!,
-                iconColor: Colors.blue[700]!,
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: _comingSoonBanner(),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _comingSoonBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.orange[300],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Text(
-        'Coming Soon',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryCard({
-    required String title,
+  Widget _toolShortcut(
+    BuildContext context, {
     required IconData icon,
-    required String value,
-    required String subtitle,
-    required Color color,
-    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
   }) {
-    return Card(
-      color: color,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: iconColor, size: 28),
-            const SizedBox(height: 8),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 12, color: iconColor),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNutritionTipCard() {
-    return Card(
-      color: Colors.amber[50],
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                '💡 Drink water before meals to aid digestion.',
-                style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRemindersCard(BuildContext context) {
-    final reminders = [
-      {'icon': Icons.access_time, 'text': 'Next meal at 1:00 PM'},
-      {'icon': Icons.fitness_center, 'text': 'Workout at 6:00 PM'},
-      {'icon': Icons.water_drop, 'text': 'Hydration: Drink a glass now!'},
-      {
-        'icon': Icons.emoji_emotions,
-        'text': '“You are stronger than you think!”',
-      },
-    ];
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.notifications_active, color: Colors.indigo[400], size: 22),
-                const SizedBox(width: 8),
-                Text('Reminders', style: Theme.of(context).textTheme.titleMedium),
-              ],
-            ),
-            const SizedBox(height: 10),
-            for (var r in reminders)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Icon(
-                      r['icon'] as IconData,
-                      size: 20,
-                      color: Colors.indigo[700],
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(r['text'] as String)),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWeeklyProgressCard(BuildContext context, bool hasProgress) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.show_chart, color: Colors.indigo[400], size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  'Weekly Progress',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            hasProgress
-                ? Column(
-                    children: [
-                      _placeholderGraph('Weight Trend'),
-                      _placeholderGraph('Calories Trend'),
-                      _placeholderGraph('Workout Frequency'),
-                    ],
-                  )
-                : const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      'No weekly progress yet. Start tracking to see your trends!',
-                      style: TextStyle(color: Color(0xFF6366F1)),
-                    ),
-                  ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholderGraph(String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return GestureDetector(
+      onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: const Color(0xFF6366F1).withOpacity(0.12),
+            child: Icon(icon, color: const Color(0xFF6366F1), size: 28),
+          ),
+          const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 48,
-            width: double.infinity,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEEF2FF), Color(0xFFD1FAE5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Color(0xFF6366F1).withOpacity(0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo[300]!),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Graph Placeholder',
-                  style: TextStyle(color: Color(0xFF6366F1)),
-                ),
-              ],
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),

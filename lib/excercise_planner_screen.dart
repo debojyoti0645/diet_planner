@@ -102,23 +102,29 @@ Each day should be clear and concise. Only output valid JSON.
     final cleanedJson = await GeminiService.postProcessExercisePlan(rawResult);
 
     // Clean the result before parsing
-    String cleanedResult = cleanedJson
-        .replaceAll(RegExp(r'```json|```'), '')
-        .replaceAll(RegExp(r'^.*?{', dotAll: true), '{') // Remove text before first {
-        .trim();
+    String cleanedResult =
+        cleanedJson
+            .replaceAll(RegExp(r'```json|```'), '')
+            .replaceAll(
+              RegExp(r'^.*?{', dotAll: true),
+              '{',
+            ) // Remove text before first {
+            .trim();
 
     try {
       final decoded = jsonDecode(cleanedResult);
-      final days = (decoded['days'] as List)
-          .map((e) => ExerciseDay.fromJson(e))
-          .toList();
+      final days =
+          (decoded['days'] as List)
+              .map((e) => ExerciseDay.fromJson(e))
+              .toList();
       setState(() {
         _parsedPlan = days;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _exercisePlan = 'Could not parse plan. Please try again.\n\n$cleanedResult';
+        _exercisePlan =
+            'Could not parse plan. Please try again.\n\n$cleanedResult';
         _parsedPlan = null;
         _isLoading = false;
       });
@@ -212,8 +218,13 @@ Each day should be clear and concise. Only output valid JSON.
               items:
                   _goals
                       .map(
-                        (goal) =>
-                            DropdownMenuItem(value: goal, child: Text(goal)),
+                        (goal) => DropdownMenuItem(
+                          value: goal,
+                          child: Text(
+                            goal,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
                       )
                       .toList(),
               decoration: const InputDecoration(
@@ -231,7 +242,12 @@ Each day should be clear and concise. Only output valid JSON.
               value: _preferredTime,
               items:
                   _times
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t, style: const TextStyle(fontSize: 13)),
+                        ),
+                      )
                       .toList(),
               decoration: const InputDecoration(
                 labelText: 'Preferred Workout Time',
@@ -248,7 +264,12 @@ Each day should be clear and concise. Only output valid JSON.
               value: _workoutType,
               items:
                   _workoutTypes
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t, style: const TextStyle(fontSize: 13)),
+                        ),
+                      )
                       .toList(),
               decoration: const InputDecoration(
                 labelText: 'Preferred Workout Type',
@@ -270,10 +291,14 @@ Each day should be clear and concise. Only output valid JSON.
                     children: [
                       Checkbox(
                         value: _wantYoga,
-                        onChanged: (val) => setState(() => _wantYoga = val ?? false),
+                        onChanged:
+                            (val) => setState(() => _wantYoga = val ?? false),
                         activeColor: const Color(0xFF6366F1),
                       ),
-                      const Icon(Icons.self_improvement, color: Color(0xFF6366F1)),
+                      const Icon(
+                        Icons.self_improvement,
+                        color: Color(0xFF6366F1),
+                      ),
                       const SizedBox(width: 8),
                       const Text('Include Yoga'),
                     ],
@@ -282,10 +307,14 @@ Each day should be clear and concise. Only output valid JSON.
                     children: [
                       Checkbox(
                         value: _hasGym,
-                        onChanged: (val) => setState(() => _hasGym = val ?? false),
+                        onChanged:
+                            (val) => setState(() => _hasGym = val ?? false),
                         activeColor: const Color(0xFF6366F1),
                       ),
-                      const Icon(Icons.fitness_center, color: Color(0xFF6366F1)),
+                      const Icon(
+                        Icons.fitness_center,
+                        color: Color(0xFF6366F1),
+                      ),
                       const SizedBox(width: 8),
                       const Text('Gym Access'),
                     ],
@@ -294,10 +323,14 @@ Each day should be clear and concise. Only output valid JSON.
                     children: [
                       Checkbox(
                         value: _canRun,
-                        onChanged: (val) => setState(() => _canRun = val ?? false),
+                        onChanged:
+                            (val) => setState(() => _canRun = val ?? false),
                         activeColor: const Color(0xFF6366F1),
                       ),
-                      const Icon(Icons.directions_run, color: Color(0xFF6366F1)),
+                      const Icon(
+                        Icons.directions_run,
+                        color: Color(0xFF6366F1),
+                      ),
                       const SizedBox(width: 8),
                       const Text('Can go for a run'),
                     ],
@@ -306,10 +339,14 @@ Each day should be clear and concise. Only output valid JSON.
                     children: [
                       Checkbox(
                         value: _canCycle,
-                        onChanged: (val) => setState(() => _canCycle = val ?? false),
+                        onChanged:
+                            (val) => setState(() => _canCycle = val ?? false),
                         activeColor: const Color(0xFF6366F1),
                       ),
-                      const Icon(Icons.directions_bike, color: Color(0xFF6366F1)),
+                      const Icon(
+                        Icons.directions_bike,
+                        color: Color(0xFF6366F1),
+                      ),
                       const SizedBox(width: 8),
                       const Text('Can go cycling'),
                     ],
@@ -368,245 +405,304 @@ Each day should be clear and concise. Only output valid JSON.
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : (_parsedPlan == null)
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : (_parsedPlan == null)
                 ? Text(
-                    _exercisePlan.isEmpty
-                        ? 'Your personalized exercise plan will appear here.'
-                        : _exercisePlan,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: Colors.grey),
-                  )
+                  _exercisePlan.isEmpty
+                      ? 'Your personalized exercise plan will appear here.'
+                      : _exercisePlan,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                )
                 : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final day in _parsedPlan!)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Day header
-                              Text(
-                                day.day,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      color: const Color(0xFF6366F1),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 19,
-                                    ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final day in _parsedPlan!)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Day header
+                            Text(
+                              day.day,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleMedium?.copyWith(
+                                color: const Color(0xFF6366F1),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 19,
                               ),
-                              const SizedBox(height: 8),
-                              // Warm-up
-                              Row(
+                            ),
+                            const SizedBox(height: 8),
+                            // Warm-up
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.directions_run,
+                                  color: Colors.orange,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Warm-up: ',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    day.warmup,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Main Exercises
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.fitness_center,
+                                  color: Colors.indigo,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Main Exercises:',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 18),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.directions_run, color: Colors.orange, size: 18),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Warm-up: ',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF6366F1),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      day.warmup,
-                                      style: Theme.of(context).textTheme.bodyMedium,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              // Main Exercises
-                              Row(
-                                children: [
-                                  const Icon(Icons.fitness_center, color: Colors.indigo, size: 18),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Main Exercises:',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF6366F1),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 18),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    for (final ex in day.main)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 2),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              "• ",
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                color: Color(0xFF6366F1),
+                                  for (final ex in day.main)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            "• ",
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: Color(0xFF6366F1),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style:
+                                                    Theme.of(
+                                                      context,
+                                                    ).textTheme.bodyMedium,
+                                                children: [
+                                                  TextSpan(
+                                                    text: ex['exercise'],
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Color(
+                                                        0xFF6366F1,
+                                                      ), // Indigo for exercise name
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: '  (',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[700],
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: '${ex['sets']} sets',
+                                                    style: const TextStyle(
+                                                      color:
+                                                          Colors
+                                                              .deepOrange, // Orange for sets
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: ' x ',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[700],
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: '${ex['reps']} reps',
+                                                    style: const TextStyle(
+                                                      color:
+                                                          Colors
+                                                              .green, // Green for reps
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: ', Rest: ',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[700],
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: ex['rest'],
+                                                    style: const TextStyle(
+                                                      color:
+                                                          Colors
+                                                              .blue, // Blue for rest
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const TextSpan(text: ')'),
+                                                ],
                                               ),
                                             ),
-                                            Expanded(
-                                              child: RichText(
-                                                text: TextSpan(
-                                                  style: Theme.of(context).textTheme.bodyMedium,
-                                                  children: [
-                                                    TextSpan(
-                                                      text: ex['exercise'],
-                                                      style: const TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFF6366F1), // Indigo for exercise name
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text: '  (',
-                                                      style: TextStyle(color: Colors.grey[700]),
-                                                    ),
-                                                    TextSpan(
-                                                      text: '${ex['sets']} sets',
-                                                      style: const TextStyle(
-                                                        color: Colors.deepOrange, // Orange for sets
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text: ' x ',
-                                                      style: TextStyle(color: Colors.grey[700]),
-                                                    ),
-                                                    TextSpan(
-                                                      text: '${ex['reps']} reps',
-                                                      style: const TextStyle(
-                                                        color: Colors.green, // Green for reps
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text: ', Rest: ',
-                                                      style: TextStyle(color: Colors.grey[700]),
-                                                    ),
-                                                    TextSpan(
-                                                      text: ex['rest'],
-                                                      style: const TextStyle(
-                                                        color: Colors.blue, // Blue for rest
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                    const TextSpan(text: ')'),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            // Cool-down
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.self_improvement,
+                                  color: Colors.green,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Cool-down: ',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    day.cooldown,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Yoga
+                            if (day.yoga != null && day.yoga!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.self_improvement,
+                                      color: Colors.purple,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Yoga: ',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6366F1),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        day.yoga!,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              // Cool-down
-                              Row(
-                                children: [
-                                  const Icon(Icons.self_improvement, color: Colors.green, size: 18),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Cool-down: ',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF6366F1),
+                            // Outdoor
+                            if (day.outdoor != null && day.outdoor!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.directions_bike,
+                                      color: Colors.blue,
+                                      size: 18,
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      day.cooldown,
-                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Outdoor: ',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6366F1),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    Expanded(
+                                      child: Text(
+                                        day.outdoor!,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              // Yoga
-                              if (day.yoga != null && day.yoga!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.self_improvement, color: Colors.purple, size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Yoga: ',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF6366F1),
-                                        ),
+                            // Notes
+                            if (day.notes != null && day.notes!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: Colors.deepOrange,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Notes: ',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6366F1),
                                       ),
-                                      Expanded(
-                                        child: Text(
-                                          day.yoga!,
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        day.notes!,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              // Outdoor
-                              if (day.outdoor != null && day.outdoor!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.directions_bike, color: Colors.blue, size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Outdoor: ',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF6366F1),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          day.outdoor!,
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              // Notes
-                              if (day.notes != null && day.notes!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.info_outline, color: Colors.deepOrange, size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Notes: ',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF6366F1),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          day.notes!,
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
+                ),
       ),
     );
   }
