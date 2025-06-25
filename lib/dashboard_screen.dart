@@ -238,9 +238,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHealthDetailsCard(context),
-              _buildToolShortcuts(context), // <-- Add this line
               const SizedBox(height: 18),
               _buildNutritionTipCard(),
+              const SizedBox(height: 18),
+              _buildToolsSection(context),
               const SizedBox(height: 45),
             ],
           ),
@@ -568,63 +569,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildToolShortcuts(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _toolShortcut(
-            context,
-            icon: Icons.timer,
-            label: "Stopwatch",
-            onTap: () {
-              Navigator.pushNamed(context, '/stopwatch');
-            },
+  Widget _buildToolsSection(BuildContext context) {
+    final tools = [
+      {
+        'icon': Icons.timer_rounded,
+        'label': "Stopwatch",
+        'color': Colors.deepPurpleAccent,
+        'route': '/stopwatch',
+      },
+      {
+        'icon': Icons.fitness_center_rounded,
+        'label': "Body Matrix",
+        'color': Colors.teal,
+        'route': '/body_measurement',
+      },
+      {
+        'icon': Icons.local_fire_department_rounded,
+        'label': "Calorie Burned",
+        'color': Colors.orangeAccent,
+        'route': '/calorie_burned_estimator',
+      },
+      {
+        'icon': Icons.water_drop_rounded,
+        'label': "Water Intake",
+        'color': Colors.lightBlueAccent,
+        'route': '/water_intake_calculator',
+      },
+      // Add more tools here
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6.0, vertical: 4),
+          child: Text(
+            "Tools",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF6366F1),
+              letterSpacing: 0.5,
+            ),
           ),
-          _toolShortcut(
-            context,
-            icon: Icons.fitness_center,
-            label: "Body Mesurement",
-            onTap: () {
-              Navigator.pushNamed(context, '/body_measurement');
-            },
+        ),
+        Card(
+          elevation: 10,
+          color: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.0, horizontal: 6),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 18,
+              children:
+                  tools.map((tool) {
+                    return _modernToolShortcut(
+                      context,
+                      icon: tool['icon'] as IconData,
+                      label: tool['label'] as String,
+                      color: tool['color'] as Color,
+                      onTap: () {
+                        Navigator.pushNamed(context, tool['route'] as String);
+                      },
+                    );
+                  }).toList(),
+            ),
           ),
-          _toolShortcut(
-            context,
-            icon: Icons.calculate,
-            label: "Calorie Burned",
-            onTap: () {
-              Navigator.pushNamed(context, '/calorie_burned_estimator');
-            },
-          ),
-          // Add more shortcuts here as you add more tool screens
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _toolShortcut(
+  Widget _modernToolShortcut(
     BuildContext context, {
     required IconData icon,
     required String label,
+    required Color color,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: const Color(0xFF6366F1).withOpacity(0.12),
-            child: Icon(icon, color: const Color(0xFF6366F1), size: 28),
+      child: Container(
+        width: 95,
+        height: 130,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.13), Colors.white.withOpacity(0.7)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: color.withOpacity(0.18), width: 1.2),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [color.withOpacity(0.85), color.withOpacity(0.65)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Icon(icon, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: color.withOpacity(0.95),
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
