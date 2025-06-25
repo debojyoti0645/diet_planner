@@ -1,8 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BodyMeasurementEntry {
   final DateTime date;
@@ -26,6 +27,37 @@ class BodyMeasurementEntry {
     this.beforePhoto,
     this.afterPhoto,
   });
+
+  Map<String, dynamic> toJson() => {
+    'date': date.toIso8601String(),
+    'waist': waist,
+    'chest': chest,
+    'arms': arms,
+    'legs': legs,
+    'hips': hips,
+    'neck': neck,
+    'beforePhoto': beforePhoto?.path,
+    'afterPhoto': afterPhoto?.path,
+  };
+
+  factory BodyMeasurementEntry.fromJson(Map<String, dynamic> json) =>
+      BodyMeasurementEntry(
+        date: DateTime.parse(json['date']),
+        waist: (json['waist'] as num).toDouble(),
+        chest: (json['chest'] as num).toDouble(),
+        arms: (json['arms'] as num).toDouble(),
+        legs: (json['legs'] as num).toDouble(),
+        hips: (json['hips'] as num).toDouble(),
+        neck: (json['neck'] as num).toDouble(),
+        beforePhoto:
+            json['beforePhoto'] != null && json['beforePhoto'] != ''
+                ? File(json['beforePhoto'])
+                : null,
+        afterPhoto:
+            json['afterPhoto'] != null && json['afterPhoto'] != ''
+                ? File(json['afterPhoto'])
+                : null,
+      );
 }
 
 class BodyMeasurementTrackerScreen extends StatefulWidget {
@@ -34,24 +66,39 @@ class BodyMeasurementTrackerScreen extends StatefulWidget {
       _BodyMeasurementTrackerScreenState();
 }
 
-class _BodyMeasurementTrackerScreenState
-    extends State<BodyMeasurementTrackerScreen> {
+class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScreen> {
   final List<BodyMeasurementEntry> _entries = [];
   final _formKey = GlobalKey<FormState>();
   DateTime _selectedDate = DateTime.now();
   double? _waist, _chest, _arms, _legs, _hips, _neck;
   File? _beforePhoto, _afterPhoto;
 
-  Future<void> _pickPhoto(bool isBefore) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
+  // User data for ideal calculation
+  double? _userHeight, _userWeight;
+  int? _userAge;
+  String? _userGender;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();
+    _loadUserData();
+  }
+
+  Future<void> _saveEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final entryList = _entries.map((e) => e.toJson()).toList();
+    prefs.setString('body_measurements', jsonEncode(entryList));
+  }
+
+  Future<void> _loadEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('body_measurements');
+    if (data != null) {
+      final List<dynamic> decoded = jsonDecode(data);
       setState(() {
-        if (isBefore) {
-          _beforePhoto = File(picked.path);
-        } else {
-          _afterPhoto = File(picked.path);
-        }
+        _entries.clear();
+        _entries.addAll(decoded.map((e) => BodyMeasurementEntry.fromJson(e)));
       });
     }
   }
@@ -69,14 +116,12 @@ class _BodyMeasurementTrackerScreenState
             legs: _legs!,
             hips: _hips!,
             neck: _neck!,
-            beforePhoto: _beforePhoto,
-            afterPhoto: _afterPhoto,
           ),
         );
         _waist = _chest = _arms = _legs = _hips = _neck = null;
-        _beforePhoto = _afterPhoto = null;
         _selectedDate = DateTime.now();
       });
+      _saveEntries(); // Save after adding
     }
   }
 
@@ -109,7 +154,257 @@ class _BodyMeasurementTrackerScreenState
       }
       spots.add(FlSpot(i.toDouble(), value));
     }
+    if (spots.length == 1) {
+      spots.add(FlSpot(1, spots[0].y));
+    }
     return spots;
+  }
+
+  Widget _buildGraphTabs() {
+    final measurements = ['Waist', 'Chest', 'Arms', 'Legs', 'Hips', 'Neck'];
+    return DefaultTabController(
+      length: measurements.length,
+      child: Card(
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: Colors.white.withOpacity(0.97),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, left: 4, right: 4, bottom: 4),
+          child: Column(
+            children: [
+              TabBar(
+                isScrollable: true,
+                labelColor: const Color(0xFF6366F1),
+                unselectedLabelColor: Colors.grey[500],
+                indicatorColor: const Color(0xFF6366F1),
+                tabs: measurements.map((m) => Tab(text: m)).toList(),
+              ),
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.2,
+                child: TabBarView(
+                  children:
+                      measurements.map((m) {
+                        final spots = _getSpots(m);
+                        return Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: LineChart(
+                            LineChartData(
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: spots,
+                                  isCurved: true,
+                                  barWidth: 3,
+                                  color: const Color(0xFF6366F1),
+                                  dotData: FlDotData(show: true),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: const Color(
+                                      0xFF6366F1,
+                                    ).withOpacity(0.12),
+                                  ),
+                                ),
+                              ],
+                              titlesData: FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 36,
+                                    getTitlesWidget:
+                                        (value, meta) => Text(
+                                          value.toStringAsFixed(0),
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                  ),
+                                ),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    interval: 1,
+                                    getTitlesWidget: (value, meta) {
+                                      int idx = value.toInt();
+                                      if (idx < 0 || idx >= _entries.length)
+                                        return const SizedBox.shrink();
+                                      final date = _entries[idx].date;
+                                      return Text(
+                                        "${date.day}/${date.month}",
+                                        style: const TextStyle(fontSize: 11),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              gridData: FlGridData(
+                                show: true,
+                                horizontalInterval: 5,
+                                verticalInterval: 1,
+                              ),
+                              borderData: FlBorderData(show: true),
+                              minY: 0,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Example keys, adjust as per your dashboard storage
+    _userHeight = prefs.getDouble('user_height');
+    _userWeight = prefs.getDouble('user_weight');
+    _userAge = prefs.getInt('user_age');
+    _userGender = prefs.getString('user_gender');
+    if (_userHeight == null || _userWeight == null || _userAge == null || _userGender == null) {
+      await _promptUserDataInput();
+    }
+    setState(() {});
+  }
+
+  Future<void> _promptUserDataInput() async {
+    final formKey = GlobalKey<FormState>();
+    double? height, weight;
+    int? age;
+    String? gender;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Enter Your Details'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Height (cm)'),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Enter height' : null,
+                    onSaved: (v) => height = double.tryParse(v ?? ''),
+                  ),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Weight (kg)'),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Enter weight' : null,
+                    onSaved: (v) => weight = double.tryParse(v ?? ''),
+                  ),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Age'),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Enter age' : null,
+                    onSaved: (v) => age = int.tryParse(v ?? ''),
+                  ),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: const [
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                    ],
+                    validator: (v) => v == null ? 'Select gender' : null,
+                    onChanged: (v) => gender = v,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  formKey.currentState!.save();
+                  Navigator.of(ctx).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (height != null && weight != null && age != null && gender != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('user_height', height!);
+      await prefs.setDouble('user_weight', weight!);
+      await prefs.setInt('user_age', age!);
+      await prefs.setString('user_gender', gender!);
+      _userHeight = height;
+      _userWeight = weight;
+      _userAge = age;
+      _userGender = gender;
+    }
+  }
+
+  // Example: Calculate "ideal" measurements (replace with real formulas if needed)
+  Map<String, double> _getIdealMeasurements() {
+    if (_userHeight == null || _userWeight == null || _userAge == null || _userGender == null) {
+      return {};
+    }
+    // These are just example formulas, you can replace with real ones
+    final h = _userHeight!;
+    final g = _userGender!;
+    return {
+      'Waist': g == 'male' ? h * 0.43 : h * 0.42,
+      'Chest': g == 'male' ? h * 0.53 : h * 0.50,
+      'Arms': g == 'male' ? h * 0.16 : h * 0.15,
+      'Legs': g == 'male' ? h * 0.29 : h * 0.28,
+      'Hips': g == 'male' ? h * 0.46 : h * 0.54,
+      'Neck': g == 'male' ? h * 0.13 : h * 0.12,
+    };
+  }
+
+  Widget _buildIdealTable() {
+    final ideals = _getIdealMeasurements();
+    if (ideals.isEmpty) {
+      return const Center(child: Text('User data missing.'));
+    }
+    return Card(
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white.withOpacity(0.97),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Table(
+          border: TableBorder.all(color: Colors.indigo.shade100),
+          columnWidths: const {
+            0: FlexColumnWidth(2),
+            1: FlexColumnWidth(2),
+          },
+          children: [
+            const TableRow(
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Measurement', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Ideal Value (cm)', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            ...ideals.entries.map((e) => TableRow(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(e.key),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(e.value.toStringAsFixed(1)),
+                ),
+              ],
+            )),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -145,33 +440,27 @@ class _BodyMeasurementTrackerScreenState
               children: [
                 _buildInputCard(context),
                 const SizedBox(height: 24),
+                Text(
+                  'Ideal Measurements for You',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF6366F1),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildIdealTable(),
+                const SizedBox(height: 24),
                 _entries.isEmpty
                     ? _buildEmptyState()
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Progress Graphs',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF6366F1),
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(height: 220, child: _buildGraphTabs()),
-                          const SizedBox(height: 24),
-                          Text(
                             'Entries',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF6366F1),
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF6366F1),
+                            ),
                           ),
                           ..._entries.reversed
                               .map((entry) => _buildEntryCard(entry))
@@ -226,9 +515,9 @@ class _BodyMeasurementTrackerScreenState
                     Text(
                       'Log your body measurements and photos',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -236,7 +525,10 @@ class _BodyMeasurementTrackerScreenState
               const SizedBox(height: 18),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today, color: Color(0xFF6366F1)),
+                leading: const Icon(
+                  Icons.calendar_today,
+                  color: Color(0xFF6366F1),
+                ),
                 title: Text(
                   "Date: ${_selectedDate.toLocal().toString().split(' ')[0]}",
                   style: const TextStyle(fontWeight: FontWeight.w600),
@@ -260,28 +552,32 @@ class _BodyMeasurementTrackerScreenState
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  _buildNumberField('Waist (cm)', (v) => _waist = v, Icons.straighten),
-                  _buildNumberField('Chest (cm)', (v) => _chest = v, Icons.accessibility_new),
-                  _buildNumberField('Arms (cm)', (v) => _arms = v, Icons.fitness_center),
-                  _buildNumberField('Legs (cm)', (v) => _legs = v, Icons.directions_run),
-                  _buildNumberField('Hips (cm)', (v) => _hips = v, Icons.directions_walk),
+                  _buildNumberField(
+                    'Waist (cm)',
+                    (v) => _waist = v,
+                    Icons.straighten,
+                  ),
+                  _buildNumberField(
+                    'Chest (cm)',
+                    (v) => _chest = v,
+                    Icons.accessibility_new,
+                  ),
+                  _buildNumberField(
+                    'Arms (cm)',
+                    (v) => _arms = v,
+                    Icons.fitness_center,
+                  ),
+                  _buildNumberField(
+                    'Legs (cm)',
+                    (v) => _legs = v,
+                    Icons.directions_run,
+                  ),
+                  _buildNumberField(
+                    'Hips (cm)',
+                    (v) => _hips = v,
+                    Icons.directions_walk,
+                  ),
                   _buildNumberField('Neck (cm)', (v) => _neck = v, Icons.face),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildPhotoColumn(
-                    label: 'Before Photo',
-                    file: _beforePhoto,
-                    onTap: () => _pickPhoto(true),
-                  ),
-                  _buildPhotoColumn(
-                    label: 'After Photo',
-                    file: _afterPhoto,
-                    onTap: () => _pickPhoto(false),
-                  ),
                 ],
               ),
               const SizedBox(height: 18),
@@ -313,7 +609,11 @@ class _BodyMeasurementTrackerScreenState
     );
   }
 
-  Widget _buildNumberField(String label, Function(double) onSaved, IconData icon) {
+  Widget _buildNumberField(
+    String label,
+    Function(double) onSaved,
+    IconData icon,
+  ) {
     return SizedBox(
       width: 200,
       child: TextFormField(
@@ -350,87 +650,27 @@ class _BodyMeasurementTrackerScreenState
             decoration: BoxDecoration(
               color: Colors.indigo.withOpacity(0.07),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF6366F1),
-                width: 1.2,
-              ),
+              border: Border.all(color: const Color(0xFF6366F1), width: 1.2),
             ),
-            child: file != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.file(
-                      file,
-                      width: 70,
-                      height: 70,
-                      fit: BoxFit.cover,
+            child:
+                file != null
+                    ? ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.file(
+                        file,
+                        width: 70,
+                        height: 70,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                    : const Icon(
+                      Icons.camera_alt,
+                      color: Color(0xFF6366F1),
+                      size: 32,
                     ),
-                  )
-                : const Icon(Icons.camera_alt, color: Color(0xFF6366F1), size: 32),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGraphTabs() {
-    final measurements = ['Waist', 'Chest', 'Arms', 'Legs', 'Hips', 'Neck'];
-    return DefaultTabController(
-      length: measurements.length,
-      child: Card(
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: Colors.white.withOpacity(0.97),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8, left: 4, right: 4, bottom: 4),
-          child: Column(
-            children: [
-              TabBar(
-                isScrollable: true,
-                labelColor: const Color(0xFF6366F1),
-                unselectedLabelColor: Colors.grey[500],
-                indicatorColor: const Color(0xFF6366F1),
-                tabs: measurements.map((m) => Tab(text: m)).toList(),
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: measurements.map((m) {
-                    return Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: LineChart(
-                        LineChartData(
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: _getSpots(m),
-                              isCurved: true,
-                              barWidth: 3,
-                              color: const Color(0xFF6366F1),
-                              dotData: FlDotData(show: true),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: const Color(0xFF6366F1).withOpacity(0.12),
-                              ),
-                            ),
-                          ],
-                          titlesData: FlTitlesData(
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: true),
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          gridData: FlGridData(show: false),
-                          borderData: FlBorderData(show: false),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -527,10 +767,7 @@ class _BodyMeasurementTrackerScreenState
           Text(
             'Start tracking your body measurements to see your progress over time!',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ],
       ),

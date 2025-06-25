@@ -6,7 +6,6 @@ import 'package:diet_planner/excercise_planner_screen.dart';
 import 'package:diet_planner/nutrition_screen.dart';
 import 'package:flutter/material.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -50,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: const Text(
-              'Hello, Debojyoti!',
+              'Your Health Planner',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -112,10 +111,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   });
                 },
                 items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.restaurant_menu), label: 'Diet'),
-                  BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Exercise'),
-                  BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Nutrition'),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard),
+                    label: 'Home',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.restaurant_menu),
+                    label: 'Diet',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.fitness_center),
+                    label: 'Exercise',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.search),
+                    label: 'Nutrition',
+                  ),
                 ],
                 selectedItemColor: const Color(0xFF6366F1),
                 unselectedItemColor: Color(0xFF9CA3AF),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WaterIntakeCalculator extends StatefulWidget {
   @override
@@ -10,7 +11,6 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
   int dailyGoalMl = 2000;
   int consumedMl = 0;
   List<Map<String, dynamic>> dailyHistory = [];
-  TimeOfDay? reminderTime;
 
   final List<Map<String, dynamic>> glassSizes = [
     {'label': 'Small (150ml)', 'amount': 150},
@@ -18,28 +18,62 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
     {'label': 'Large (500ml)', 'amount': 500},
   ];
 
+  String todayKey = '';
+
   @override
   void initState() {
     super.initState();
+    todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _loadTodayHistory();
   }
 
-  void _loadTodayHistory() {
-    // For demo: resets history every day (no persistent storage)
-    String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    dailyHistory = [];
-    consumedMl = 0;
+  Future<void> _loadTodayHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Load consumedMl
+    consumedMl = prefs.getInt('consumed_$todayKey') ?? 0;
+
+    // Load dailyGoalMl
+    dailyGoalMl = prefs.getInt('goal') ?? 2000;
+
+    // Load dailyHistory
+    final historyList = prefs.getStringList('history_$todayKey') ?? [];
+    dailyHistory =
+        historyList.map(
+          (e) {
+            final parts = e.split('|');
+            // Explicitly define the type of the map being returned
+            return <String, dynamic>{
+              'amount': int.parse(parts[0]),
+              'time': DateTime.parse(parts[1]),
+            };
+          },
+        ).toList(); // The .cast() might not be strictly necessary if the map creation is typed, but can keep it for extra safety if needed.
+
     setState(() {});
+  }
+
+  Future<void> _saveTodayProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('consumed_$todayKey', consumedMl);
+    await prefs.setInt('goal', dailyGoalMl);
+    final historyList =
+        dailyHistory
+            .map(
+              (e) =>
+                  '${e['amount']}|${(e['time'] as DateTime).toIso8601String()}',
+            )
+            .toList();
+    await prefs.setStringList('history_$todayKey', historyList);
   }
 
   void _logWater(int amount) {
     setState(() {
       consumedMl += amount;
-      dailyHistory.add({
-        'amount': amount,
-        'time': DateTime.now(),
-      });
+      dailyHistory.add({'amount': amount, 'time': DateTime.now()});
     });
+    _saveTodayProgress();
   }
 
   void _setGoalDialog() async {
@@ -48,7 +82,9 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
       builder: (context) {
         int tempGoal = dailyGoalMl;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           title: const Text('Set Daily Goal (ml)'),
           content: TextField(
             keyboardType: TextInputType.number,
@@ -74,25 +110,7 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
       setState(() {
         dailyGoalMl = newGoal;
       });
-    }
-  }
-
-  void _setReminderDialog() async {
-    TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: reminderTime ?? TimeOfDay.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        reminderTime = picked;
-      });
-      // For demo: No actual notification scheduling
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reminder set for ${picked.format(context)} (demo only)'),
-          backgroundColor: Colors.blue[200],
-        ),
-      );
+      _saveTodayProgress();
     }
   }
 
@@ -111,17 +129,12 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
           style: TextStyle(
             color: Color(0xFF6366F1),
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
             letterSpacing: 1.1,
           ),
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.alarm, color: Color(0xFF6366F1)),
-            onPressed: _setReminderDialog,
-            tooltip: 'Set Reminder',
-          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Color(0xFF6366F1)),
             onPressed: _setGoalDialog,
@@ -141,9 +154,22 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
           child: Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 18,
+                ),
                 child: Column(
                   children: [
+                    // Show current date
+                    Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Card(
                       elevation: 10,
                       shadowColor: Colors.indigo[100],
@@ -152,7 +178,10 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                       ),
                       color: Colors.white.withOpacity(0.97),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 28),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 28,
+                        ),
                         child: Column(
                           children: [
                             // Decorative icon and title
@@ -161,7 +190,9 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                                 children: [
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF6366F1).withOpacity(0.09),
+                                      color: const Color(
+                                        0xFF6366F1,
+                                      ).withOpacity(0.09),
                                       shape: BoxShape.circle,
                                     ),
                                     padding: const EdgeInsets.all(18),
@@ -174,8 +205,8 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                                   const SizedBox(height: 10),
                                   Text(
                                     'Stay Hydrated!',
-                                    style: TextStyle(
-                                      color: const Color(0xFF6366F1),
+                                    style: const TextStyle(
+                                      color: Color(0xFF6366F1),
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -183,7 +214,9 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Hydration is crucial for overall health and performance.',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium?.copyWith(
                                       color: Colors.grey[600],
                                       fontSize: 14,
                                     ),
@@ -197,7 +230,11 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.flag, color: Color(0xFF6366F1), size: 22),
+                                const Icon(
+                                  Icons.flag,
+                                  color: Color(0xFF6366F1),
+                                  size: 22,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Goal: $dailyGoalMl ml',
@@ -216,53 +253,91 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                                 value: progress,
                                 minHeight: 18,
                                 backgroundColor: Colors.blue[100],
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF60A5FA),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               '$consumedMl ml / $dailyGoalMl ml',
-                              style: const TextStyle(fontSize: 16, color: Color(0xFF374151)),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF374151),
+                              ),
                             ),
                             const SizedBox(height: 24),
                             // Log water buttons
-                            Text('Log Water Consumed:', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Log Water Consumed:',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(height: 8),
                             Column(
-                              children: glassSizes.map((glass) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(minWidth: double.infinity),
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _logWater(glass['amount']),
-                                      icon: const Icon(Icons.local_drink, color: Colors.white, size: 20),
-                                      label: Text(glass['label']),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF6366F1), // Match theme color
-                                        foregroundColor: Colors.white,
-                                        elevation: 4,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
-                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        minimumSize: const Size.fromHeight(48), // Ensures equal height
+                              children:
+                                  glassSizes.map((glass) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4.0,
                                       ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          minWidth: double.infinity,
+                                        ),
+                                        child: ElevatedButton.icon(
+                                          onPressed:
+                                              () => _logWater(
+                                                glass['amount'] as int,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.local_drink,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          label: Text(glass['label'] as String),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFF6366F1,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                            elevation: 4,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 0,
+                                              vertical: 14,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                            minimumSize: const Size.fromHeight(
+                                              48,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                             ),
                             const SizedBox(height: 24),
                             // Today's history
                             Row(
                               children: [
-                                const Icon(Icons.history, color: Color(0xFF6366F1), size: 22),
+                                const Icon(
+                                  Icons.history,
+                                  color: Color(0xFF6366F1),
+                                  size: 22,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   "Today's History",
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF6366F1),
                                     fontSize: 16,
@@ -277,43 +352,41 @@ class _WaterIntakeCalculatorState extends State<WaterIntakeCalculator> {
                                 color: Colors.blue[50]?.withOpacity(0.25),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: dailyHistory.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        'No water logged yet.',
-                                        style: TextStyle(
-                                          color: Colors.blueGrey[400],
-                                          fontStyle: FontStyle.italic,
+                              child:
+                                  dailyHistory.isEmpty
+                                      ? Center(
+                                        child: Text(
+                                          'No water logged yet.',
+                                          style: TextStyle(
+                                            color: Colors.blueGrey[400],
+                                            fontStyle: FontStyle.italic,
+                                          ),
                                         ),
+                                      )
+                                      : ListView.builder(
+                                        itemCount: dailyHistory.length,
+                                        itemBuilder: (context, idx) {
+                                          final entry =
+                                              dailyHistory[dailyHistory.length -
+                                                  1 -
+                                                  idx];
+                                          return ListTile(
+                                            leading: const Icon(
+                                              Icons.local_drink,
+                                              color: Color(0xFF60A5FA),
+                                            ),
+                                            title: Text(
+                                              '${entry['amount']} ml',
+                                            ),
+                                            subtitle: Text(
+                                              DateFormat('hh:mm a').format(
+                                                entry['time'] as DateTime,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: dailyHistory.length,
-                                      itemBuilder: (context, idx) {
-                                        final entry = dailyHistory[dailyHistory.length - 1 - idx];
-                                        return ListTile(
-                                          leading: const Icon(Icons.local_drink, color: Color(0xFF60A5FA)),
-                                          title: Text('${entry['amount']} ml'),
-                                          subtitle: Text(DateFormat('hh:mm a').format(entry['time'])),
-                                        );
-                                      },
-                                    ),
                             ),
-                            if (reminderTime != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.alarm, color: Colors.blueGrey, size: 18),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Reminder set for: ${reminderTime!.format(context)}',
-                                      style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
-                                    ),
-                                  ],
-                                ),
-                              ),
                           ],
                         ),
                       ),

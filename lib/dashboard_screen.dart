@@ -219,6 +219,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadHealthDetails(); // <-- Load saved details on startup
   }
 
+  String _formattedDate() {
+    return DateFormat('EEEE, MMM d, yyyy').format(DateTime.now());
+  }
+
   @override
   Widget build(BuildContext context) {
     DateFormat('EEEE, MMM d').format(DateTime.now());
@@ -237,6 +241,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Add this block to show the date
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0, left: 2.0),
+                child: Text(
+                  _formattedDate(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+              ),
               _buildHealthDetailsCard(context),
               const SizedBox(height: 18),
               _buildNutritionTipCard(),
@@ -531,37 +547,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.amber[100],
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.amber.withOpacity(0.18),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(10),
-              child: const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
+            Text(
+              "Tip of the day:-",
+              style: TextStyle(fontSize: 14, color: Colors.amber[700]),
             ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Text(
-                _selectedTip,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF7C5700),
-                  height: 1.3,
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.amber[100],
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withOpacity(0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: const Icon(
+                    Icons.lightbulb,
+                    color: Colors.amber,
+                    size: 32,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _selectedTip,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF7C5700),
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -595,7 +627,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'color': Colors.lightBlueAccent,
         'route': '/water_intake_calculator',
       },
-      // Add more tools here
+      {
+        'icon': Icons.restaurant_menu_rounded,
+        'label': "Healthy Recipes",
+        'color': Colors.greenAccent,
+        'route': '/healthy_recipes',
+      },
     ];
 
     return Column(

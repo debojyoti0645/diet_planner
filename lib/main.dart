@@ -1,5 +1,6 @@
 import 'package:diet_planner/body_measurement_tracker_screen.dart';
 import 'package:diet_planner/calorie_burned_estimator.dart';
+import 'package:diet_planner/healthy_recipe_screen.dart';
 import 'package:diet_planner/home_screen.dart';
 import 'package:diet_planner/stop_watch_screen.dart';
 import 'package:diet_planner/water_intake_calculator.dart';
@@ -121,6 +122,7 @@ class MyApp extends StatelessWidget {
         '/body_measurement': (context) => BodyMeasurementTrackerScreen(),
         '/calorie_burned_estimator': (context) => CalorieBurnedEstimator(),
         '/water_intake_calculator': (context) => WaterIntakeCalculator(),
+        '/healthy_recipes': (context) => const HealthyRecipeScreen(),
         // Add more routes if needed
       },
     );
