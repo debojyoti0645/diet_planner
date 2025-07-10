@@ -630,7 +630,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {
         'icon': Icons.restaurant_menu_rounded,
         'label': "Healthy Recipes",
-        'color': Colors.greenAccent,
+        'color': Colors.redAccent,
         'route': '/healthy_recipes',
       },
     ];

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:diet_planner/gemini_service.dart';
+import 'package:diet_planner/recipe_api_service.dart';
 import 'package:flutter/material.dart';
 
 class HealthyRecipeScreen extends StatefulWidget {
@@ -95,7 +95,8 @@ ${specific.isNotEmpty ? "User request: $specific" : ""}
 If you are unsure, output: {"recipe_name": "", "ingredients": [], "steps": [], "nutrition": {}, "tips": []}
 ''';
 
-    final response = await GeminiService.callGeminiAPI(prompt);
+    // Use the new service here:
+    final response = await HealthyRecipeService.callGeminiAPI(prompt);
 
     try {
       final cleaned = response.replaceAll(RegExp(r'```json|```'), '').trim();
