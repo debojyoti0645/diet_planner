@@ -1,8 +1,14 @@
 import 'dart:convert';
+import 'dart:io'; // Add this import
 
 import 'package:diet_planner/gemini_service.dart';
 import 'package:diet_planner/input_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart'; // Add this import
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class DietPlannerScreen extends StatefulWidget {
   const DietPlannerScreen({super.key});
@@ -89,6 +95,133 @@ Include some general hydration tips. Format it clearly with days and meals.
     }
   }
 
+  Future<void> _downloadDietPlanAsPdf(BuildContext context) async {
+    if (_dietPlanData == null) return;
+
+    final pdf = pw.Document();
+
+    // Load a TTF font that supports Unicode
+    final font = pw.Font.ttf(
+      await rootBundle.load('fonts/Roboto-Regular.ttf'),
+    );
+
+    final days = _dietPlanData!['days'] as List<dynamic>? ?? [];
+    final guidelines = _dietPlanData!['important_guidelines'] as List<dynamic>? ?? [];
+    final hydration = _dietPlanData!['hydration_tips'] as List<dynamic>? ?? [];
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          buildBackground: (context) => pw.Center(
+            child: pw.Opacity(
+              opacity: 0.08,
+              child: pw.Text(
+                'Diet Chart by Your Health Planner App',
+                style: pw.TextStyle(
+                  font: font,
+                  fontSize: 48,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blueGrey,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+        build: (pw.Context context) => [
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(
+                child: pw.Text(
+                  'Personalized Diet Plan',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 28,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.indigo,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 16),
+              for (final day in days) ...[
+                pw.Text(
+                  day['day'] ?? '',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.indigo,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                for (final meal in (day['meals'] as Map<String, dynamic>).entries)
+                  pw.Bullet(
+                    text: '${meal.key}: ${meal.value}',
+                    style: pw.TextStyle(font: font, fontSize: 13),
+                  ),
+                if (day['total_calories'] != null)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(left: 8, top: 2, bottom: 8),
+                    child: pw.Text(
+                      'Total Calories: ${day['total_calories']}',
+                      style: pw.TextStyle(
+                        font: font,
+                        color: PdfColors.deepOrange,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                pw.Divider(),
+              ],
+              if (guidelines.isNotEmpty) ...[
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Important Guidelines:',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.indigo,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                for (final tip in guidelines)
+                  pw.Bullet(
+                    text: tip,
+                    style: pw.TextStyle(font: font, fontSize: 12),
+                  ),
+              ],
+              if (hydration.isNotEmpty) ...[
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Hydration Tips:',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.blue,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                for (final tip in hydration)
+                  pw.Bullet(
+                    text: tip,
+                    style: pw.TextStyle(font: font, fontSize: 12),
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Diet_Plan.pdf',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,7 +253,27 @@ Include some general hydration tips. Format it clearly with days and meals.
       return const Center(child: CircularProgressIndicator());
     }
     if (_dietPlanData != null) {
-      return _buildDietPlanFromJson(_dietPlanData!, context);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildDietPlanFromJson(_dietPlanData!, context),
+          const SizedBox(height: 16),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: () => _downloadDietPlanAsPdf(context),
+              icon: const Icon(Icons.download),
+              label: const Text('Download as PDF'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
     }
     return InputFields.buildOutputContainer(
       _dietPlanJson,
@@ -396,29 +549,38 @@ Include some general hydration tips. Format it clearly with days and meals.
                 children: [
                   const Text(
                     'Religion/Caste (if relevant)',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF374151)),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   GestureDetector(
                     onTap: () {
                       showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Why do we ask this?'),
-                          content: const Text(
-                            'Some dietary restrictions and preferences are influenced by religion or caste (e.g., Jain, Muslim, Hindu). '
-                            'This helps us personalize your plan. You may skip this if you are not comfortable sharing.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('OK'),
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text('Why do we ask this?'),
+                              content: const Text(
+                                'Some dietary restrictions and preferences are influenced by religion or caste (e.g., Jain, Muslim, Hindu). '
+                                'This helps us personalize your plan. You may skip this if you are not comfortable sharing.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('OK'),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
                       );
                     },
-                    child: const Icon(Icons.info_outline, size: 18, color: Color(0xFF6366F1)),
+                    child: const Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: Color(0xFF6366F1),
+                    ),
                   ),
                 ],
               ),

@@ -56,16 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 letterSpacing: 1.1,
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.menu, color: Colors.white),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Menu button pressed')),
-                  );
-                },
-              ),
-            ],
           ),
         ),
       ),

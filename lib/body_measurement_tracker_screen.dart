@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,12 +65,12 @@ class BodyMeasurementTrackerScreen extends StatefulWidget {
       _BodyMeasurementTrackerScreenState();
 }
 
-class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScreen> {
+class _BodyMeasurementTrackerScreenState
+    extends State<BodyMeasurementTrackerScreen> {
   final List<BodyMeasurementEntry> _entries = [];
   final _formKey = GlobalKey<FormState>();
   DateTime _selectedDate = DateTime.now();
   double? _waist, _chest, _arms, _legs, _hips, _neck;
-  File? _beforePhoto, _afterPhoto;
 
   // User data for ideal calculation
   double? _userHeight, _userWeight;
@@ -125,134 +124,6 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
     }
   }
 
-  List<FlSpot> _getSpots(String measurement) {
-    List<FlSpot> spots = [];
-    _entries.sort((a, b) => a.date.compareTo(b.date));
-    for (int i = 0; i < _entries.length; i++) {
-      double value;
-      switch (measurement) {
-        case 'Waist':
-          value = _entries[i].waist;
-          break;
-        case 'Chest':
-          value = _entries[i].chest;
-          break;
-        case 'Arms':
-          value = _entries[i].arms;
-          break;
-        case 'Legs':
-          value = _entries[i].legs;
-          break;
-        case 'Hips':
-          value = _entries[i].hips;
-          break;
-        case 'Neck':
-          value = _entries[i].neck;
-          break;
-        default:
-          value = 0;
-      }
-      spots.add(FlSpot(i.toDouble(), value));
-    }
-    if (spots.length == 1) {
-      spots.add(FlSpot(1, spots[0].y));
-    }
-    return spots;
-  }
-
-  Widget _buildGraphTabs() {
-    final measurements = ['Waist', 'Chest', 'Arms', 'Legs', 'Hips', 'Neck'];
-    return DefaultTabController(
-      length: measurements.length,
-      child: Card(
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: Colors.white.withOpacity(0.97),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8, left: 4, right: 4, bottom: 4),
-          child: Column(
-            children: [
-              TabBar(
-                isScrollable: true,
-                labelColor: const Color(0xFF6366F1),
-                unselectedLabelColor: Colors.grey[500],
-                indicatorColor: const Color(0xFF6366F1),
-                tabs: measurements.map((m) => Tab(text: m)).toList(),
-              ),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.2,
-                child: TabBarView(
-                  children:
-                      measurements.map((m) {
-                        final spots = _getSpots(m);
-                        return Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: LineChart(
-                            LineChartData(
-                              lineBarsData: [
-                                LineChartBarData(
-                                  spots: spots,
-                                  isCurved: true,
-                                  barWidth: 3,
-                                  color: const Color(0xFF6366F1),
-                                  dotData: FlDotData(show: true),
-                                  belowBarData: BarAreaData(
-                                    show: true,
-                                    color: const Color(
-                                      0xFF6366F1,
-                                    ).withOpacity(0.12),
-                                  ),
-                                ),
-                              ],
-                              titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 36,
-                                    getTitlesWidget:
-                                        (value, meta) => Text(
-                                          value.toStringAsFixed(0),
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                  ),
-                                ),
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    interval: 1,
-                                    getTitlesWidget: (value, meta) {
-                                      int idx = value.toInt();
-                                      if (idx < 0 || idx >= _entries.length)
-                                        return const SizedBox.shrink();
-                                      final date = _entries[idx].date;
-                                      return Text(
-                                        "${date.day}/${date.month}",
-                                        style: const TextStyle(fontSize: 11),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                              gridData: FlGridData(
-                                show: true,
-                                horizontalInterval: 5,
-                                verticalInterval: 1,
-                              ),
-                              borderData: FlBorderData(show: true),
-                              minY: 0,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     // Example keys, adjust as per your dashboard storage
@@ -260,7 +131,10 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
     _userWeight = prefs.getDouble('user_weight');
     _userAge = prefs.getInt('user_age');
     _userGender = prefs.getString('user_gender');
-    if (_userHeight == null || _userWeight == null || _userAge == null || _userGender == null) {
+    if (_userHeight == null ||
+        _userWeight == null ||
+        _userAge == null ||
+        _userGender == null) {
       await _promptUserDataInput();
     }
     setState(() {});
@@ -286,19 +160,22 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
                   TextFormField(
                     decoration: const InputDecoration(labelText: 'Height (cm)'),
                     keyboardType: TextInputType.number,
-                    validator: (v) => v == null || v.isEmpty ? 'Enter height' : null,
+                    validator:
+                        (v) => v == null || v.isEmpty ? 'Enter height' : null,
                     onSaved: (v) => height = double.tryParse(v ?? ''),
                   ),
                   TextFormField(
                     decoration: const InputDecoration(labelText: 'Weight (kg)'),
                     keyboardType: TextInputType.number,
-                    validator: (v) => v == null || v.isEmpty ? 'Enter weight' : null,
+                    validator:
+                        (v) => v == null || v.isEmpty ? 'Enter weight' : null,
                     onSaved: (v) => weight = double.tryParse(v ?? ''),
                   ),
                   TextFormField(
                     decoration: const InputDecoration(labelText: 'Age'),
                     keyboardType: TextInputType.number,
-                    validator: (v) => v == null || v.isEmpty ? 'Enter age' : null,
+                    validator:
+                        (v) => v == null || v.isEmpty ? 'Enter age' : null,
                     onSaved: (v) => age = int.tryParse(v ?? ''),
                   ),
                   DropdownButtonFormField<String>(
@@ -343,7 +220,10 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
 
   // Example: Calculate "ideal" measurements (replace with real formulas if needed)
   Map<String, double> _getIdealMeasurements() {
-    if (_userHeight == null || _userWeight == null || _userAge == null || _userGender == null) {
+    if (_userHeight == null ||
+        _userWeight == null ||
+        _userAge == null ||
+        _userGender == null) {
       return {};
     }
     // These are just example formulas, you can replace with real ones
@@ -372,35 +252,40 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
         padding: const EdgeInsets.all(16.0),
         child: Table(
           border: TableBorder.all(color: Colors.indigo.shade100),
-          columnWidths: const {
-            0: FlexColumnWidth(2),
-            1: FlexColumnWidth(2),
-          },
+          columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(2)},
           children: [
             const TableRow(
               children: [
                 Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: Text('Measurement', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Measurement',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: Text('Ideal Value (cm)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Ideal Value (cm)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
-            ...ideals.entries.map((e) => TableRow(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(e.key),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(e.value.toStringAsFixed(1)),
-                ),
-              ],
-            )),
+            ...ideals.entries.map(
+              (e) => TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(e.key),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(e.value.toStringAsFixed(1)),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -453,20 +338,22 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
                 _entries.isEmpty
                     ? _buildEmptyState()
                     : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Entries',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF6366F1),
-                            ),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Entries',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF6366F1),
                           ),
-                          ..._entries.reversed
-                              .map((entry) => _buildEntryCard(entry))
-                              .toList(),
-                        ],
-                      ),
+                        ),
+                        ..._entries.reversed
+                            .map((entry) => _buildEntryCard(entry))
+                            .toList(),
+                      ],
+                    ),
               ],
             ),
           ),
@@ -630,47 +517,6 @@ class _BodyMeasurementTrackerScreenState extends State<BodyMeasurementTrackerScr
         },
         onSaved: (value) => onSaved(double.parse(value!)),
       ),
-    );
-  }
-
-  Widget _buildPhotoColumn({
-    required String label,
-    required File? file,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.07),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF6366F1), width: 1.2),
-            ),
-            child:
-                file != null
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        file,
-                        width: 70,
-                        height: 70,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                    : const Icon(
-                      Icons.camera_alt,
-                      color: Color(0xFF6366F1),
-                      size: 32,
-                    ),
-          ),
-        ),
-      ],
     );
   }
 

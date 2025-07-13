@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import 'package:diet_planner/gemini_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class ExercisePlanScreen extends StatefulWidget {
   const ExercisePlanScreen({super.key});
@@ -21,6 +25,9 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
   String _exercisePlan = '';
   bool _isLoading = false;
   List<ExerciseDay>? _parsedPlan;
+
+  String? _splitPreference;
+  String? _customSplit;
 
   final List<String> _goals = [
     'Bulking',
@@ -49,6 +56,13 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
     'No Preference',
   ];
 
+  final List<String> _splitOptions = [
+    'Push-Pull-Legs',
+    'Each Body Part a Day',
+    'Mixed Body Parts',
+    'Custom (Type Below)',
+  ];
+
   Future<void> _generateExercisePlan() async {
     setState(() {
       _isLoading = true;
@@ -64,12 +78,17 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
       return;
     }
 
+    final split = _splitPreference == 'Custom (Type Below)'
+        ? (_customSplit?.isNotEmpty == true ? _customSplit : 'No preference')
+        : _splitPreference ?? 'No preference';
+
     final prompt = '''
 Generate a 7-day exercise plan for the following user preferences:
 
 Goal: $_selectedGoal
 Preferred workout time: ${_preferredTime ?? 'Any'}
 Preferred workout type: ${_workoutType ?? 'Any'}
+Workout split: $split
 Wants yoga: ${_wantYoga ? 'Yes' : 'No'}
 Has gym access: ${_hasGym ? 'Yes' : 'No'}
 Can go for a run: ${_canRun ? 'Yes' : 'No'}
@@ -139,6 +158,111 @@ Each day should be clear and concise. Only output valid JSON.
     } catch (e) {
       return [];
     }
+  }
+
+  Future<void> _downloadExercisePlanAsPdf(BuildContext context) async {
+    if (_parsedPlan == null || _parsedPlan!.isEmpty) return;
+
+    final pdf = pw.Document();
+
+    // Load a TTF font that supports Unicode
+    final font = pw.Font.ttf(
+      await rootBundle.load('fonts/Roboto-Regular.ttf'),
+    );
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          buildBackground: (context) => pw.Center(
+            child: pw.Opacity(
+              opacity: 0.08,
+              child: pw.Text(
+                'Workout Plan by Your Health Planner App',
+                style: pw.TextStyle(
+                  font: font,
+                  fontSize: 48,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blueGrey,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+        build: (pw.Context context) => [
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(
+                child: pw.Text(
+                  'Personalized Workout Plan',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 28,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.indigo,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 16),
+              for (final day in _parsedPlan!) ...[
+                pw.Text(
+                  day.day,
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.indigo,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Bullet(
+                  text: 'Warm-up: ${day.warmup}',
+                  style: pw.TextStyle(font: font, fontSize: 13),
+                ),
+                pw.Text('Main Exercises:', style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo)),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    for (final ex in day.main)
+                      pw.Bullet(
+                        text:
+                            '${ex['exercise']} (${ex['sets']} sets x ${ex['reps']} reps, Rest: ${ex['rest']})',
+                        style: pw.TextStyle(font: font, fontSize: 12),
+                      ),
+                  ],
+                ),
+                pw.Bullet(
+                  text: 'Cool-down: ${day.cooldown}',
+                  style: pw.TextStyle(font: font, fontSize: 13),
+                ),
+                if (day.yoga != null && day.yoga!.isNotEmpty)
+                  pw.Bullet(
+                    text: 'Yoga: ${day.yoga}',
+                    style: pw.TextStyle(font: font, fontSize: 12),
+                  ),
+                if (day.outdoor != null && day.outdoor!.isNotEmpty)
+                  pw.Bullet(
+                    text: 'Outdoor: ${day.outdoor}',
+                    style: pw.TextStyle(font: font, fontSize: 12),
+                  ),
+                if (day.notes != null && day.notes!.isNotEmpty)
+                  pw.Bullet(
+                    text: 'Notes: ${day.notes}',
+                    style: pw.TextStyle(font: font, fontSize: 12, color: PdfColors.deepOrange),
+                  ),
+                pw.Divider(),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Workout_Plan.pdf',
+    );
   }
 
   @override
@@ -281,6 +405,39 @@ Each day should be clear and concise. Only output valid JSON.
                 });
               },
             ),
+            const SizedBox(height: 18),
+            DropdownButtonFormField<String>(
+              value: _splitPreference,
+              items: _splitOptions
+                  .map(
+                    (split) => DropdownMenuItem(
+                      value: split,
+                      child: Text(split, style: const TextStyle(fontSize: 13)),
+                    ),
+                  )
+                  .toList(),
+              decoration: const InputDecoration(
+                labelText: 'Workout Split Preference',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _splitPreference = value;
+                  if (value != 'Custom (Type Below)') _customSplit = null;
+                });
+              },
+            ),
+            if (_splitPreference == 'Custom (Type Below)')
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Describe your workout split',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (val) => setState(() => _customSplit = val),
+                ),
+              ),
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6.0),
@@ -701,6 +858,21 @@ Each day should be clear and concise. Only output valid JSON.
                           ],
                         ),
                       ),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _downloadExercisePlanAsPdf(context),
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download as PDF'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
       ),
