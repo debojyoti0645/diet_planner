@@ -237,13 +237,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 35),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Add this block to show the date
               Padding(
-                padding: const EdgeInsets.only(bottom: 12.0, left: 2.0),
+                padding: const EdgeInsets.only(bottom: 4.0, left: 2.0),
                 child: Text(
                   _formattedDate(),
                   style: const TextStyle(
@@ -254,11 +254,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               _buildHealthDetailsCard(context),
-              const SizedBox(height: 18),
+              const SizedBox(height: 4),
               _buildNutritionTipCard(),
-              const SizedBox(height: 18),
+              const SizedBox(height: 4),
               _buildToolsSection(context),
-              const SizedBox(height: 45),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -530,7 +530,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Card(
       elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 2),
       child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -547,7 +547,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

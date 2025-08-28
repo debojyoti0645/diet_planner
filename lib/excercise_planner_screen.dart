@@ -78,12 +78,15 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
       return;
     }
 
-    final split = _splitPreference == 'Custom (Type Below)'
-        ? (_customSplit?.isNotEmpty == true ? _customSplit : 'No preference')
-        : _splitPreference ?? 'No preference';
+    final split =
+        _splitPreference == 'Custom (Type Below)'
+            ? (_customSplit?.isNotEmpty == true
+                ? _customSplit
+                : 'No preference')
+            : _splitPreference ?? 'No preference';
 
     final prompt = '''
-Generate a 7-day exercise plan for the following user preferences:
+Generate a comprehensive 7-day exercise plan for the following user preferences:
 
 Goal: $_selectedGoal
 Preferred workout time: ${_preferredTime ?? 'Any'}
@@ -94,175 +97,244 @@ Has gym access: ${_hasGym ? 'Yes' : 'No'}
 Can go for a run: ${_canRun ? 'Yes' : 'No'}
 Can go cycling: ${_canCycle ? 'Yes' : 'No'}
 
-Respond ONLY in the following JSON format:
+Create a balanced weekly routine with:
+- Each day having exactly 6 main exercises
+- Appropriate warm-up and cool-down for each day
+- Exercise variety targeting different muscle groups
+- Progressive difficulty throughout the week
+- Rest/recovery considerations
+- Include yoga sessions if requested
+- Include outdoor activities (running/cycling) if available
+- Specific sets, reps, and rest periods for each exercise
 
-{
-  "days": [
-    {
-      "day": "Monday",
-      "warmup": "5 min brisk walk",
-      "main": [
-        {"exercise": "Push-ups", "sets": 3, "reps": 12, "rest": "60s"},
-        {"exercise": "Squats", "sets": 3, "reps": 15, "rest": "60s"}
-      ],
-      "cooldown": "5 min stretching",
-      "yoga": "Sun Salutation (if yoga wanted)",
-      "outdoor": "Go for a 15 min run (if possible)",
-      "notes": "Rest if needed"
-    },
-    ...
-  ]
-}
-
-Each day should be clear and concise. Only output valid JSON.
+Focus on exercises that match the user's goal and available equipment/activities.
 ''';
 
-    final rawResult = await GeminiService.callGeminiAPI(prompt);
-    final cleanedJson = await GeminiService.postProcessExercisePlan(rawResult);
-
-    // Clean the result before parsing
-    String cleanedResult =
-        cleanedJson
-            .replaceAll(RegExp(r'```json|```'), '')
-            .replaceAll(
-              RegExp(r'^.*?{', dotAll: true),
-              '{',
-            ) // Remove text before first {
-            .trim();
-
     try {
+      final rawResult = await GeminiService.callGeminiAPI(prompt);
+      final cleanedJson = await GeminiService.postProcessExercisePlan(
+        rawResult,
+      );
+
+      // Clean the result before parsing
+      String cleanedResult =
+          cleanedJson
+              .replaceAll(RegExp(r'```json|```'), '')
+              .replaceAll(RegExp(r'^[^{]*'), '') // Remove text before first {
+              .replaceAll(RegExp(r'}[^}]*$'), '}') // Remove text after last }
+              .trim();
+
       final decoded = jsonDecode(cleanedResult);
-      final days =
-          (decoded['days'] as List)
-              .map((e) => ExerciseDay.fromJson(e))
-              .toList();
-      setState(() {
-        _parsedPlan = days;
-        _isLoading = false;
-      });
+
+      // Validate the structure
+      if (decoded is Map && decoded.containsKey('days')) {
+        final daysData = decoded['days'];
+        if (daysData is List && daysData.isNotEmpty) {
+          final days =
+              daysData
+                  .map((e) => ExerciseDay.fromJson(e as Map<String, dynamic>))
+                  .toList();
+
+          setState(() {
+            _parsedPlan = days;
+            _exercisePlan = ''; // Clear any error message
+            _isLoading = false;
+          });
+        } else {
+          throw Exception('Invalid days structure');
+        }
+      } else {
+        throw Exception('Invalid JSON structure');
+      }
     } catch (e) {
       setState(() {
         _exercisePlan =
-            'Could not parse plan. Please try again.\n\n$cleanedResult';
+            'Could not generate plan. Please try again.\nError: ${e.toString()}';
         _parsedPlan = null;
         _isLoading = false;
       });
     }
   }
 
-  Object _parseExercisePlan(String plan) {
-    // Basic parsing logic (improved to decode JSON)
-    try {
-      final json = jsonDecode(plan);
-      return json['days'];
-    } catch (e) {
-      return [];
-    }
-  }
-
   Future<void> _downloadExercisePlanAsPdf(BuildContext context) async {
     if (_parsedPlan == null || _parsedPlan!.isEmpty) return;
 
-    final pdf = pw.Document();
+    try {
+      final pdf = pw.Document();
 
-    // Load a TTF font that supports Unicode
-    final font = pw.Font.ttf(
-      await rootBundle.load('fonts/Roboto-Regular.ttf'),
-    );
+      // Load a TTF font that supports Unicode
+      final font = pw.Font.ttf(
+        await rootBundle.load('fonts/Roboto-Regular.ttf'),
+      );
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          buildBackground: (context) => pw.Center(
-            child: pw.Opacity(
-              opacity: 0.08,
-              child: pw.Text(
-                'Workout Plan by Your Health Planner App',
-                style: pw.TextStyle(
-                  font: font,
-                  fontSize: 48,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blueGrey,
+      pdf.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            buildBackground:
+                (context) => pw.Center(
+                  child: pw.Opacity(
+                    opacity: 0.08,
+                    child: pw.Text(
+                      'Workout Plan by Your Health Planner App',
+                      style: pw.TextStyle(
+                        font: font,
+                        fontSize: 48,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blueGrey,
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
                 ),
-                textAlign: pw.TextAlign.center,
-              ),
-            ),
           ),
-        ),
-        build: (pw.Context context) => [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Center(
-                child: pw.Text(
-                  'Personalized Workout Plan',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontSize: 28,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.indigo,
-                  ),
-                ),
-              ),
-              pw.SizedBox(height: 16),
-              for (final day in _parsedPlan!) ...[
-                pw.Text(
-                  day.day,
-                  style: pw.TextStyle(
-                    font: font,
-                    fontSize: 20,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.indigo,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Bullet(
-                  text: 'Warm-up: ${day.warmup}',
-                  style: pw.TextStyle(font: font, fontSize: 13),
-                ),
-                pw.Text('Main Exercises:', style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo)),
+          build:
+              (pw.Context context) => [
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    for (final ex in day.main)
-                      pw.Bullet(
-                        text:
-                            '${ex['exercise']} (${ex['sets']} sets x ${ex['reps']} reps, Rest: ${ex['rest']})',
-                        style: pw.TextStyle(font: font, fontSize: 12),
+                    pw.Center(
+                      child: pw.Text(
+                        'Personalized Workout Plan',
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 28,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.indigo,
+                        ),
                       ),
+                    ),
+                    pw.SizedBox(height: 20),
+
+                    // Plan Summary
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(12),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(
+                          color: PdfColors.indigo,
+                          width: 1,
+                        ),
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(8),
+                        ),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'Plan Details:',
+                            style: pw.TextStyle(
+                              font: font,
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            'Goal: ${_selectedGoal ?? "General Fitness"}',
+                            style: pw.TextStyle(font: font, fontSize: 12),
+                          ),
+                          pw.Text(
+                            'Workout Type: ${_workoutType ?? "Mixed"}',
+                            style: pw.TextStyle(font: font, fontSize: 12),
+                          ),
+                          pw.Text(
+                            'Preferred Time: ${_preferredTime ?? "Flexible"}',
+                            style: pw.TextStyle(font: font, fontSize: 12),
+                          ),
+                          if (_wantYoga)
+                            pw.Text(
+                              'Includes Yoga Sessions',
+                              style: pw.TextStyle(font: font, fontSize: 12),
+                            ),
+                          if (_hasGym)
+                            pw.Text(
+                              'Gym Access Available',
+                              style: pw.TextStyle(font: font, fontSize: 12),
+                            ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(height: 16),
+
+                    for (final day in _parsedPlan!) ...[
+                      pw.Text(
+                        day.day,
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 20,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.indigo,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Bullet(
+                        text: 'Warm-up: ${day.warmup}',
+                        style: pw.TextStyle(font: font, fontSize: 13),
+                      ),
+                      pw.Text(
+                        'Main Exercises:',
+                        style: pw.TextStyle(
+                          font: font,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.indigo,
+                          fontSize: 14,
+                        ),
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          for (final ex in day.main)
+                            pw.Bullet(
+                              text:
+                                  '${ex['exercise']} (${ex['sets']} sets x ${ex['reps']} reps, Rest: ${ex['rest']})',
+                              style: pw.TextStyle(font: font, fontSize: 12),
+                            ),
+                        ],
+                      ),
+                      pw.Bullet(
+                        text: 'Cool-down: ${day.cooldown}',
+                        style: pw.TextStyle(font: font, fontSize: 13),
+                      ),
+                      if (day.yoga != null && day.yoga!.isNotEmpty)
+                        pw.Bullet(
+                          text: 'Yoga: ${day.yoga}',
+                          style: pw.TextStyle(font: font, fontSize: 12),
+                        ),
+                      if (day.outdoor != null && day.outdoor!.isNotEmpty)
+                        pw.Bullet(
+                          text: 'Outdoor: ${day.outdoor}',
+                          style: pw.TextStyle(font: font, fontSize: 12),
+                        ),
+                      if (day.notes != null && day.notes!.isNotEmpty)
+                        pw.Bullet(
+                          text: 'Notes: ${day.notes}',
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 12,
+                            color: PdfColors.deepOrange,
+                          ),
+                        ),
+                      pw.Divider(),
+                      pw.SizedBox(height: 8),
+                    ],
                   ],
                 ),
-                pw.Bullet(
-                  text: 'Cool-down: ${day.cooldown}',
-                  style: pw.TextStyle(font: font, fontSize: 13),
-                ),
-                if (day.yoga != null && day.yoga!.isNotEmpty)
-                  pw.Bullet(
-                    text: 'Yoga: ${day.yoga}',
-                    style: pw.TextStyle(font: font, fontSize: 12),
-                  ),
-                if (day.outdoor != null && day.outdoor!.isNotEmpty)
-                  pw.Bullet(
-                    text: 'Outdoor: ${day.outdoor}',
-                    style: pw.TextStyle(font: font, fontSize: 12),
-                  ),
-                if (day.notes != null && day.notes!.isNotEmpty)
-                  pw.Bullet(
-                    text: 'Notes: ${day.notes}',
-                    style: pw.TextStyle(font: font, fontSize: 12, color: PdfColors.deepOrange),
-                  ),
-                pw.Divider(),
               ],
-            ],
-          ),
-        ],
-      ),
-    );
+        ),
+      );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Workout_Plan.pdf',
-    );
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'Workout_Plan.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating PDF: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -352,7 +424,7 @@ Each day should be clear and concise. Only output valid JSON.
                       )
                       .toList(),
               decoration: const InputDecoration(
-                labelText: 'Select Goal',
+                labelText: 'Select Goal *',
                 border: OutlineInputBorder(),
               ),
               onChanged: (value) {
@@ -408,14 +480,18 @@ Each day should be clear and concise. Only output valid JSON.
             const SizedBox(height: 18),
             DropdownButtonFormField<String>(
               value: _splitPreference,
-              items: _splitOptions
-                  .map(
-                    (split) => DropdownMenuItem(
-                      value: split,
-                      child: Text(split, style: const TextStyle(fontSize: 13)),
-                    ),
-                  )
-                  .toList(),
+              items:
+                  _splitOptions
+                      .map(
+                        (split) => DropdownMenuItem(
+                          value: split,
+                          child: Text(
+                            split,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(),
               decoration: const InputDecoration(
                 labelText: 'Workout Split Preference',
                 border: OutlineInputBorder(),
@@ -577,6 +653,42 @@ Each day should be clear and concise. Only output valid JSON.
                 : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header with plan summary
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.fitness_center,
+                            color: const Color(0xFF6366F1),
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '7-Day Workout Plan',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.copyWith(
+                              color: const Color(0xFF6366F1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Goal: ${_selectedGoal ?? "General Fitness"}',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     for (final day in _parsedPlan!)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 18),
@@ -672,9 +784,7 @@ Each day should be clear and concise. Only output valid JSON.
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold,
-                                                      color: Color(
-                                                        0xFF6366F1,
-                                                      ), // Indigo for exercise name
+                                                      color: Color(0xFF6366F1),
                                                     ),
                                                   ),
                                                   TextSpan(
@@ -686,9 +796,7 @@ Each day should be clear and concise. Only output valid JSON.
                                                   TextSpan(
                                                     text: '${ex['sets']} sets',
                                                     style: const TextStyle(
-                                                      color:
-                                                          Colors
-                                                              .deepOrange, // Orange for sets
+                                                      color: Colors.deepOrange,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -702,9 +810,7 @@ Each day should be clear and concise. Only output valid JSON.
                                                   TextSpan(
                                                     text: '${ex['reps']} reps',
                                                     style: const TextStyle(
-                                                      color:
-                                                          Colors
-                                                              .green, // Green for reps
+                                                      color: Colors.green,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -718,9 +824,7 @@ Each day should be clear and concise. Only output valid JSON.
                                                   TextSpan(
                                                     text: ex['rest'],
                                                     style: const TextStyle(
-                                                      color:
-                                                          Colors
-                                                              .blue, // Blue for rest
+                                                      color: Colors.blue,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -905,9 +1009,9 @@ class ExerciseDay {
       warmup: json['warmup'] ?? '',
       main: json['main'] ?? [],
       cooldown: json['cooldown'] ?? '',
-      yoga: json['yoga'],
-      outdoor: json['outdoor'],
-      notes: json['notes'],
+      yoga: json['yoga']?.isEmpty == true ? null : json['yoga'],
+      outdoor: json['outdoor']?.isEmpty == true ? null : json['outdoor'],
+      notes: json['notes']?.isEmpty == true ? null : json['notes'],
     );
   }
 }

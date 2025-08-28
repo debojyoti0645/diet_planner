@@ -118,12 +118,11 @@ class MyApp extends StatelessWidget {
       ),
       home: const HomeScreen(),
       routes: {
-        '/stopwatch': (context) => const StopwatchScreen(),
+        '/stopwatch': (context) => const SportsStopwatchScreen(),
         '/body_measurement': (context) => BodyMeasurementTrackerScreen(),
         '/calorie_burned_estimator': (context) => CalorieBurnedEstimator(),
         '/water_intake_calculator': (context) => WaterIntakeCalculator(),
         '/healthy_recipes': (context) => const HealthyRecipeScreen(),
-        // Add more routes if needed
       },
     );
   }

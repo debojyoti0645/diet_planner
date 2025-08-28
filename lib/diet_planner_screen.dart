@@ -60,10 +60,10 @@ class _DietPlannerScreenState extends State<DietPlannerScreen> {
 Generate a personalized 7-day diet plan for a user.
 
 Everyday Life: ${_everydayLifeController.text.isNotEmpty ? _everydayLifeController.text : 'Standard, moderate activity'}.
-Culture: ${_cultureController.text.isNotEmpty ? _cultureController.text : 'General Western'}.
-State/Region: ${_regionController.text.isNotEmpty ? _regionController.text : 'Not specified'}.
-Religion/Caste: ${_religionController.text.isNotEmpty ? _religionController.text : 'Not specified'}.
-Preferred Staple Foods: ${_stapleFoodController.text.isNotEmpty ? _stapleFoodController.text : 'Not specified'}.
+Culture: ${_cultureController.text.isNotEmpty ? _cultureController.text : 'General INdian'}.
+State/Region: ${_regionController.text.isNotEmpty ? _regionController.text : 'Kolkata, West Bengal'}.
+Religion/Caste: ${_religionController.text.isNotEmpty ? _religionController.text : 'Hindu'}.
+Preferred Staple Foods: ${_stapleFoodController.text.isNotEmpty ? _stapleFoodController.text : 'Rice'}.
 Food Habits: ${_foodHabitsController.text.isNotEmpty ? _foodHabitsController.text : 'Omnivore, prefers home-cooked meals'}.
 Exercise Goal: $_selectedExerciseGoal.
 
@@ -368,13 +368,14 @@ Include some general hydration tips. Format it clearly with days and meals.
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Total Calories: ${day['total_calories']}',
+                              'Total Calories: \n${day['total_calories']} kcal',
                               style: Theme.of(
                                 context,
                               ).textTheme.bodyMedium?.copyWith(
                                 color: Colors.deepOrange,
                                 fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 2,
                             ),
                           ],
                         ),

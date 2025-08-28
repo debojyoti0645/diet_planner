@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class HealthyRecipeService {
-  static const String _apiKey = "AIzaSyBnwkfzvnblERi5B5adrQqBPvKYiLB9-8c";
+  static const String _apiKey = "AIzaSyBF0P7J0kvBvOSnYw027zZB_HQB7ttj314";
   static Future<String> callGeminiAPI(String prompt, {String model = "gemini-2.0-flash"}) async {
     final Uri apiUrl = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey');
